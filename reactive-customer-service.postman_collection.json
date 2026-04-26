@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "Reactive Customer Service API",
+    "_postman_id": "3e66f4b2-9d57-4fd8-a6e3-c1dc3f2e6a10",
+    "description": "Postman collection para probar la API REST reactiva de Customer Service desarrollada con Spring Boot WebFlux.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Create Customer - 201 Created",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"Alex\",\n  \"lastname\": \"Prieto\",\n  \"state\": \"active\",\n  \"age\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Creates a new customer. Expected response: 201 Created."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Customer - Duplicate ID 400 Bad Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"Juan\",\n  \"lastname\": \"Perez\",\n  \"state\": \"active\",\n  \"age\": 25\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Attempts to create a customer with an existing ID. Expected response: 400 Bad Request."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/customers/active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customers",
+                "active"
+              ]
+            },
+            "description": "Returns customers with state active."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
