@@ -113,4 +113,67 @@ class CustomerDomainServiceTest {
 
         verify(repositoryPort).findAllActive();
     }
+
+    // ── updateCustomer ───────────────────────────────────────────────────────
+
+    @Test
+    void updateCustomer_shouldReturnUpdatedCustomer_whenExists() {
+        Customer updatedData = new Customer(null, "Alexander", "Prieto Chavez", CustomerState.INACTIVE, 31);
+        Customer expectedResult = new Customer(1, "Alexander", "Prieto Chavez", CustomerState.INACTIVE, 31);
+
+        when(repositoryPort.findById(1)).thenReturn(Mono.just(CUSTOMER_WITH_ID));
+        when(repositoryPort.update(any())).thenReturn(Mono.just(expectedResult));
+
+        StepVerifier.create(domainService.updateCustomer(1, updatedData))
+                .expectNextMatches(c -> c.nombre().equals("Alexander")
+                        && c.apellido().equals("Prieto Chavez")
+                        && c.estado() == CustomerState.INACTIVE
+                        && c.edad() == 31
+                        && c.id() == 1)
+                .verifyComplete();
+
+        verify(repositoryPort).findById(1);
+        verify(repositoryPort).update(expectedResult);
+    }
+
+    @Test
+    void updateCustomer_shouldThrowClienteNoEncontradoException_whenNotExists() {
+        Customer updatedData = new Customer(null, "Alexander", "Prieto", CustomerState.ACTIVE, 31);
+        when(repositoryPort.findById(99)).thenReturn(Mono.empty());
+
+        StepVerifier.create(domainService.updateCustomer(99, updatedData))
+                .expectErrorMatches(e -> e instanceof ClienteNoEncontradoException
+                        && e.getMessage().contains("99"))
+                .verify();
+
+        verify(repositoryPort).findById(99);
+        verify(repositoryPort, never()).update(any());
+    }
+
+    // ── deleteCustomer ───────────────────────────────────────────────────────
+
+    @Test
+    void deleteCustomer_shouldComplete_whenExists() {
+        when(repositoryPort.findById(1)).thenReturn(Mono.just(CUSTOMER_WITH_ID));
+        when(repositoryPort.delete(1)).thenReturn(Mono.empty());
+
+        StepVerifier.create(domainService.deleteCustomer(1))
+                .verifyComplete();
+
+        verify(repositoryPort).findById(1);
+        verify(repositoryPort).delete(1);
+    }
+
+    @Test
+    void deleteCustomer_shouldThrowClienteNoEncontradoException_whenNotExists() {
+        when(repositoryPort.findById(99)).thenReturn(Mono.empty());
+
+        StepVerifier.create(domainService.deleteCustomer(99))
+                .expectErrorMatches(e -> e instanceof ClienteNoEncontradoException
+                        && e.getMessage().contains("99"))
+                .verify();
+
+        verify(repositoryPort).findById(99);
+        verify(repositoryPort, never()).delete(any());
+    }
 }

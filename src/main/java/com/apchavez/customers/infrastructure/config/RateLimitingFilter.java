@@ -80,7 +80,15 @@ public class RateLimitingFilter implements WebFilter {
     private String extractClientIp(ServerHttpRequest request) {
         String forwarded = request.getHeaders().getFirst("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+            // Take the rightmost non-blank segment — added by trusted infrastructure (last hop).
+            // The leftmost segment is client-provided and can be spoofed.
+            String[] parts = forwarded.split(",");
+            for (int i = parts.length - 1; i >= 0; i--) {
+                String ip = parts[i].trim();
+                if (!ip.isBlank()) {
+                    return ip;
+                }
+            }
         }
         InetSocketAddress remoteAddress = request.getRemoteAddress();
         return remoteAddress != null ? remoteAddress.getAddress().getHostAddress() : "unknown";

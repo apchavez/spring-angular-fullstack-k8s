@@ -3,15 +3,16 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: customerdb
-      POSTGRES_USER: customer_user
-      POSTGRES_PASSWORD: customer_pass
+      POSTGRES_DB: ${DB_NAME:-customerdb}
+      POSTGRES_USER: ${DB_USER:-customer_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-customer_pass}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U customer_user -d customerdb"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-customer_user} -d ${DB_NAME:-customerdb}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,9 +26,9 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: customerdb
-      DB_USER: customer_user
-      DB_PASSWORD: customer_pass
+      DB_NAME: ${DB_NAME:-customerdb}
+      DB_USER: ${DB_USER:-customer_user}
+      DB_PASSWORD: ${DB_PASSWORD:-customer_pass}
     depends_on:
       db:
         condition: service_healthy

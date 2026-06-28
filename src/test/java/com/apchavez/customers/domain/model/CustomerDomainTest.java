@@ -1,8 +1,6 @@
 package com.apchavez.customers.domain.model;
 
 import com.apchavez.customers.domain.exception.ClienteDominioInvalidoException;
-import com.apchavez.customers.infrastructure.web.dto.CustomerResponseDTO;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import net.jqwik.api.*;
 import net.jqwik.api.constraints.AlphaChars;
 import net.jqwik.api.constraints.IntRange;
@@ -15,7 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class CustomerDomainTest {
 
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     // ── Construcción válida ──────────────────────────────────────────────────
 
@@ -127,24 +124,4 @@ class CustomerDomainTest {
                 .isInstanceOf(ClienteDominioInvalidoException.class);
     }
 
-    // ── Property-Based Testing: round-trip JSON de CustomerResponseDTO ───────
-
-    @Provide
-    Arbitrary<CustomerResponseDTO> validResponseDTOs() {
-        return Combinators.combine(
-                Arbitraries.integers().greaterOrEqual(1),
-                Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(150),
-                Arbitraries.strings().alpha().ofMinLength(1).ofMaxLength(150),
-                Arbitraries.of("ACTIVE", "INACTIVE"),
-                Arbitraries.integers().between(1, 150))
-                .as(CustomerResponseDTO::new);
-    }
-
-    @Property
-    void json_roundtrip_should_preserve_all_fields(@ForAll("validResponseDTOs") CustomerResponseDTO dto)
-            throws Exception {
-        String json = objectMapper.writeValueAsString(dto);
-        CustomerResponseDTO deserialized = objectMapper.readValue(json, CustomerResponseDTO.class);
-        assertThat(deserialized).isEqualTo(dto);
-    }
 }

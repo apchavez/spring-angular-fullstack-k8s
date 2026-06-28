@@ -1,6 +1,7 @@
 package com.apchavez.customers.infrastructure.persistence;
 
 import com.apchavez.customers.domain.model.Customer;
+import com.apchavez.customers.domain.model.CustomerState;
 import com.apchavez.customers.domain.port.CustomerRepositoryPort;
 import com.apchavez.customers.infrastructure.mapper.CustomerMapper;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,12 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
     }
 
     @Override
+    public Mono<Customer> update(Customer customer) {
+        return r2dbcRepository.save(mapper.toEntity(customer))
+                .map(mapper::toDomain);
+    }
+
+    @Override
     public Mono<Customer> findById(Integer id) {
         return r2dbcRepository.findById(id)
                 .map(mapper::toDomain);
@@ -32,7 +39,12 @@ public class CustomerPersistenceAdapter implements CustomerRepositoryPort {
 
     @Override
     public Flux<Customer> findAllActive() {
-        return r2dbcRepository.findAllByEstado("ACTIVE")
+        return r2dbcRepository.findAllByEstado(CustomerState.ACTIVE.name())
                 .map(mapper::toDomain);
+    }
+
+    @Override
+    public Mono<Void> delete(Integer id) {
+        return r2dbcRepository.deleteById(id);
     }
 }

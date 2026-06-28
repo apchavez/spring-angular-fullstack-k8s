@@ -5,6 +5,7 @@ import com.apchavez.customers.domain.model.CustomerState;
 import com.apchavez.customers.infrastructure.persistence.CustomerEntity;
 import com.apchavez.customers.infrastructure.web.dto.CustomerRequestDTO;
 import com.apchavez.customers.infrastructure.web.dto.CustomerResponseDTO;
+import com.apchavez.customers.infrastructure.web.dto.CustomerUpdateRequestDTO;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -13,6 +14,15 @@ public class CustomerMapper {
     public Customer toDomain(CustomerRequestDTO dto) {
         return new Customer(
                 dto.id(),
+                dto.nombre(),
+                dto.apellido(),
+                CustomerState.fromString(dto.estado()),
+                dto.edad());
+    }
+
+    public Customer toDomain(CustomerUpdateRequestDTO dto) {
+        return new Customer(
+                null,
                 dto.nombre(),
                 dto.apellido(),
                 CustomerState.fromString(dto.estado()),

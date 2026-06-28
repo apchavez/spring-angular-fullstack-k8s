@@ -4,6 +4,7 @@ import com.apchavez.customers.infrastructure.persistence.CustomerEntity;
 import com.apchavez.customers.infrastructure.persistence.CustomerR2dbcRepository;
 import com.apchavez.customers.infrastructure.web.dto.CustomerRequestDTO;
 import com.apchavez.customers.infrastructure.web.dto.CustomerResponseDTO;
+import com.apchavez.customers.infrastructure.web.dto.CustomerUpdateRequestDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +57,6 @@ class CustomerControllerIntegrationTest {
 
     @Test
     void createCustomer_shouldReturn409_whenIdAlreadyExists() {
-        // save with null ID so H2 auto-generates it, then reuse that ID
         CustomerEntity existing = r2dbcRepository
                 .save(new CustomerEntity(null, "Existing", "User", "ACTIVE", 25))
                 .block();
@@ -143,6 +143,95 @@ class CustomerControllerIntegrationTest {
     @Test
     void findById_shouldReturn404_whenCustomerNotFound() {
         webTestClient.get()
+                .uri("/api/v1/customers/{id}", 9999)
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.mensaje").isNotEmpty();
+    }
+
+    // ── PUT /api/v1/customers/{id} ───────────────────────────────────────────
+
+    @Test
+    void updateCustomer_shouldReturn200_withUpdatedData_whenExists() {
+        CustomerEntity saved = r2dbcRepository
+                .save(new CustomerEntity(null, "Alex", "Prieto", "ACTIVE", 30))
+                .block();
+
+        CustomerUpdateRequestDTO request =
+                new CustomerUpdateRequestDTO("Alexander", "Prieto Chavez", "INACTIVE", 31);
+
+        webTestClient.put()
+                .uri("/api/v1/customers/{id}", saved.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(CustomerResponseDTO.class)
+                .value(response -> {
+                    assertThat(response.id()).isEqualTo(saved.getId());
+                    assertThat(response.nombre()).isEqualTo("Alexander");
+                    assertThat(response.apellido()).isEqualTo("Prieto Chavez");
+                    assertThat(response.estado()).isEqualTo("INACTIVE");
+                    assertThat(response.edad()).isEqualTo(31);
+                });
+    }
+
+    @Test
+    void updateCustomer_shouldReturn404_whenNotFound() {
+        CustomerUpdateRequestDTO request =
+                new CustomerUpdateRequestDTO("Alexander", "Prieto", "ACTIVE", 30);
+
+        webTestClient.put()
+                .uri("/api/v1/customers/{id}", 9999)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(404)
+                .jsonPath("$.mensaje").isNotEmpty();
+    }
+
+    @Test
+    void updateCustomer_shouldReturn400_whenRequestIsInvalid() {
+        CustomerUpdateRequestDTO request =
+                new CustomerUpdateRequestDTO("", null, "INVALID", -1);
+
+        webTestClient.put()
+                .uri("/api/v1/customers/{id}", 1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo(400)
+                .jsonPath("$.errores").isArray();
+    }
+
+    // ── DELETE /api/v1/customers/{id} ────────────────────────────────────────
+
+    @Test
+    void deleteCustomer_shouldReturn204_whenExists() {
+        CustomerEntity saved = r2dbcRepository
+                .save(new CustomerEntity(null, "Alex", "Prieto", "ACTIVE", 30))
+                .block();
+
+        webTestClient.delete()
+                .uri("/api/v1/customers/{id}", saved.getId())
+                .exchange()
+                .expectStatus().isNoContent();
+
+        webTestClient.get()
+                .uri("/api/v1/customers/{id}", saved.getId())
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void deleteCustomer_shouldReturn404_whenNotFound() {
+        webTestClient.delete()
                 .uri("/api/v1/customers/{id}", 9999)
                 .exchange()
                 .expectStatus().isNotFound()

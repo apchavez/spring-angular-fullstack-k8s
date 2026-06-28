@@ -1,31 +1,49 @@
 # Reactive Customer Service API
 
-API REST reactiva desarrollada con **Spring Boot WebFlux** para gestionar clientes con operaciones de registro y consulta.
+[![CI](https://github.com/apchavez/reactive-customer-service/actions/workflows/ci.yml/badge.svg)](https://github.com/apchavez/reactive-customer-service/actions/workflows/ci.yml)
+
+API REST reactiva desarrollada con **Spring Boot WebFlux** para gestionar clientes (CRUD completo) siguiendo **arquitectura hexagonal (Ports & Adapters)**.
 
 ## Tecnologías
 
-* Java 21
-* Spring Boot 3.5.3
-* Spring WebFlux (Mono / Flux)
-* Spring Data R2DBC
-* Spring Security
-* Spring Boot Actuator
-* H2 (perfil dev) / PostgreSQL (perfil prod)
-* Gradle + JaCoCo
-* Lombok
-* Springdoc OpenAPI (Swagger UI)
-* Docker + docker-compose
-* Kubernetes (manifests en `k8s/`)
+| Categoría | Tecnología |
+|---|---|
+| Lenguaje / Runtime | Java 21, Spring Boot 3.5.3 |
+| Reactividad | Spring WebFlux (Mono / Flux), Spring Data R2DBC |
+| Base de datos | H2 (perfil dev) / PostgreSQL 16 (perfil prod) |
+| Seguridad | Spring Security (headers, CORS, rate limiting) |
+| Observabilidad | Spring Boot Actuator, SLF4J + Logback, X-Request-Id |
+| Documentación API | Springdoc OpenAPI 2 (Swagger UI) |
+| Build | Gradle 8, JaCoCo (cobertura ≥ 80 % en dominio y aplicación) |
+| Calidad de código | ArchUnit, SonarQube |
+| Contenerización | Docker (multistage build) + docker-compose |
+| Orquestación | Kubernetes (manifests en `k8s/`) |
+| CI/CD | GitHub Actions → ghcr.io |
 
-## Funcionalidades
+---
 
-* Crear clientes con validación de dominio
-* Evitar IDs duplicados
-* Consultar cliente por ID
-* Listar clientes activos
-* Manejo de errores centralizado
-* Rate limiting por IP
-* Cobertura mínima del 80 % en dominio y aplicación
+## Arquitectura
+
+Hexagonal (Ports & Adapters) con tres capas bien delimitadas:
+
+```
+src/main/java/com/apchavez/customers
+├── domain
+│   ├── model          Customer (record con invariantes), CustomerState
+│   ├── exception      Excepciones de dominio tipadas
+│   ├── port           CustomerRepositoryPort (interfaz — el contrato)
+│   └── service        CustomerDomainService (lógica de negocio pura)
+├── application
+│   └── CustomerApplicationService  (orquestación, logging de auditoría, @Transactional)
+└── infrastructure
+    ├── config         Security, RateLimiting, RequestLogging, OpenApi, Startup
+    ├── mapper         CustomerMapper (DTO ↔ Domain ↔ Entity)
+    ├── persistence    CustomerEntity, CustomerR2dbcRepository, CustomerPersistenceAdapter
+    └── web            CustomerController, DTOs (Request/Update/Response), GlobalExceptionHandler
+```
+
+**Regla de dependencias:** `infrastructure` → `application` → `domain`  
+El dominio no conoce las capas externas. Verificado automáticamente por `ArchitectureTest` (ArchUnit).
 
 ---
 
@@ -35,160 +53,59 @@ API REST reactiva desarrollada con **Spring Boot WebFlux** para gestionar client
 ./gradlew bootRun
 ```
 
-La aplicación inicia en `http://localhost:8080`.  
-Swagger UI: `http://localhost:8080/swagger-ui.html`
+- App: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 ## Ejecutar con Docker (PostgreSQL)
 
 ```bash
+# Opcional: personalizar credenciales
+cp .env.example .env
+# editar .env con los valores deseados
+
 docker compose up --build
 ```
 
-## Desplegar en Kubernetes
-
-Antes del primer deploy, editar `k8s/deployment.yaml` y reemplazar `OWNER` por el usuario u organización de GitHub:
-
-```bash
-# Ejemplo: ghcr.io/apchavez/reactive-customer-service:latest
-sed -i 's/OWNER/tu-usuario-github/' k8s/deployment.yaml
-```
-
-Aplicar los manifests en orden:
-
-```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
-```
-
-Para apuntar a un commit concreto en lugar de `latest`:
-
-```bash
-kubectl set image deployment/customer-service \
-  customer-service=ghcr.io/OWNER/reactive-customer-service:sha-abc1234 \
-  -n customer-service
-```
-
-> Actualizar `k8s/secret.yaml` con las credenciales reales antes de desplegar en producción.  
-> El Ingress asume un NGINX Ingress Controller y el host `customer-service.local`.
+> El script `docker/postgres-init.sql` inicializa el schema de PostgreSQL automáticamente en el primer arranque.
 
 ---
 
-## Endpoints disponibles
+## Endpoints
 
 Base path: `/api/v1/customers`
 
-### POST `/api/v1/customers` — Crear cliente
+| Método | Ruta | Descripción | Respuestas |
+|---|---|---|---|
+| `POST` | `/` | Crear cliente | `201`, `400`, `409`, `422` |
+| `GET` | `/active` | Listar clientes activos | `200` |
+| `GET` | `/{id}` | Buscar por ID | `200`, `404` |
+| `PUT` | `/{id}` | Actualizar cliente completo | `200`, `400`, `404`, `422` |
+| `DELETE` | `/{id}` | Eliminar cliente | `204`, `404` |
 
-El campo `id` es opcional; si se omite, se genera automáticamente.
+La documentación interactiva completa (con ejemplos de request/response y todos los códigos de error) está disponible en Swagger UI.
 
-**Request body:**
-```json
-{ "nombre": "Alex", "apellido": "Prieto", "estado": "ACTIVE", "edad": 30 }
-```
-
-**Respuesta 201:**
-```json
-{ "id": 7, "nombre": "Alex", "apellido": "Prieto", "estado": "ACTIVE", "edad": 30 }
-```
-
-**Respuesta 409 — ID duplicado:**
-```json
-{ "timestamp": "2026-06-26T10:00:00", "status": 409, "error": "Conflict", "mensaje": "Ya existe un cliente con el ID: 100" }
-```
-
-**Respuesta 400 — campos inválidos (Bean Validation):**
-```json
-{
-  "timestamp": "2026-06-26T10:00:00",
-  "status": 400,
-  "error": "Bad Request",
-  "mensaje": "Error de validación de campos",
-  "errores": [
-    { "campo": "nombre", "mensaje": "El nombre es requerido" },
-    { "campo": "edad",   "mensaje": "La edad debe ser mayor que cero" }
-  ]
-}
-```
-
-| Caso | Código |
-|---|---|
-| Creación exitosa | `201 Created` |
-| ID duplicado | `409 Conflict` |
-| Campos inválidos (Bean Validation) | `400 Bad Request` |
-
-### GET `/api/v1/customers/active` — Listar clientes activos
-
-**Respuesta 200:**
-```json
-[
-  { "id": 1, "nombre": "Alex", "apellido": "Prieto", "estado": "ACTIVE", "edad": 30 }
-]
-```
-
-Siempre retorna 200 (array vacío si no hay clientes activos).
-
-### GET `/api/v1/customers/{id}` — Buscar por ID
-
-**Respuesta 200:**
-```json
-{ "id": 1, "nombre": "Alex", "apellido": "Prieto", "estado": "ACTIVE", "edad": 30 }
-```
-
-**Respuesta 404:**
-```json
-{ "timestamp": "2026-06-26T10:00:00", "status": 404, "error": "Not Found", "mensaje": "No se encontró un cliente con el ID: 9999" }
-```
-
-| Caso | Código |
-|---|---|
-| Cliente encontrado | `200 OK` |
-| No existe | `404 Not Found` |
-
----
-
-## Ejemplos con cURL
+### Ejemplos rápidos
 
 ```bash
-# Crear cliente (ID autogenerado)
+# Crear cliente
 curl -X POST http://localhost:8080/api/v1/customers \
   -H "Content-Type: application/json" \
   -d '{"nombre":"Alex","apellido":"Prieto","estado":"ACTIVE","edad":30}'
 
+# Listar activos
+curl http://localhost:8080/api/v1/customers/active
+
 # Buscar por ID
 curl http://localhost:8080/api/v1/customers/1
 
-# Listar activos
-curl http://localhost:8080/api/v1/customers/active
+# Actualizar
+curl -X PUT http://localhost:8080/api/v1/customers/1 \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"Alexander","apellido":"Prieto Chavez","estado":"INACTIVE","edad":31}'
+
+# Eliminar
+curl -X DELETE http://localhost:8080/api/v1/customers/1
 ```
-
----
-
-## Arquitectura
-
-Hexagonal (Ports & Adapters):
-
-```text
-src/main/java/com/apchavez/customers
-├── domain
-│   ├── model          Customer, CustomerState
-│   ├── exception      Excepciones de dominio
-│   ├── port           CustomerRepositoryPort (interfaz)
-│   └── service        CustomerDomainService
-├── application
-│   └── CustomerApplicationService
-└── infrastructure
-    ├── config         Security, RateLimiting, OpenApi, Startup
-    ├── mapper         CustomerMapper
-    ├── persistence    CustomerEntity, CustomerR2dbcRepository, CustomerPersistenceAdapter
-    └── web            CustomerController, DTOs, GlobalExceptionHandler
-```
-
-**Regla de dependencias:** `infrastructure` → `application` → `domain`  
-El dominio no conoce las capas externas (verificado por `ArchitectureTest`).
 
 ---
 
@@ -198,36 +115,47 @@ El dominio no conoce las capas externas (verificado por `ArchitectureTest`).
 ./gradlew test          # ejecuta todos los tests + JaCoCo
 ```
 
-| Tipo | Clase |
-|---|---|
-| Modelo de dominio — unit + property-based (jqwik) | `CustomerDomainTest` |
-| Servicio de dominio — unit | `CustomerDomainServiceTest` |
-| Servicio de aplicación — unit | `CustomerApplicationServiceTest` |
-| Adaptador de persistencia — `@DataR2dbcTest` | `CustomerPersistenceAdapterTest` |
-| Controlador REST — integración completa | `CustomerControllerIntegrationTest` |
-| Actuator probes (liveness/readiness) | `ActuatorHealthTest` |
-| Arquitectura hexagonal — ArchUnit | `ArchitectureTest` |
+| Tipo | Clase | Descripción |
+|---|---|---|
+| Modelo de dominio — unit + property-based (jqwik) | `CustomerDomainTest` | Invariantes del record `Customer` |
+| Serialización JSON — property-based | `CustomerResponseDTOSerializationTest` | Round-trip sin pérdida de datos |
+| Servicio de dominio — unit | `CustomerDomainServiceTest` | Lógica de negocio (create/find/update/delete) |
+| Servicio de aplicación — unit | `CustomerApplicationServiceTest` | Orquestación de casos de uso |
+| Adaptador de persistencia — `@DataR2dbcTest` | `CustomerPersistenceAdapterTest` | Puerto de persistencia con H2 real |
+| Controlador REST — integración completa | `CustomerControllerIntegrationTest` | Todos los endpoints y códigos de respuesta |
+| Rate limiter — unit | `RateLimitingFilterTest` | Límite por IP y aislamiento entre IPs |
+| Actuator probes | `ActuatorHealthTest` | Liveness/Readiness |
+| Arquitectura hexagonal — ArchUnit | `ArchitectureTest` | 4 reglas de dependencia |
 
 ---
 
-## CI / CD
+## CI/CD
 
 El pipeline de GitHub Actions (`.github/workflows/ci.yml`) ejecuta tres jobs en cada push:
 
-| Job | Se ejecuta en | Qué hace |
+| Job | Disparador | Qué hace |
 |---|---|---|
-| `test` | todo push / PR | Compila, pruebas, JaCoCo, cobertura ≥ 80 % |
-| `k8s-validate` | todo push / PR | Valida los manifests con **kubeconform** |
-| `docker` | push a `main` (tras `test`) | Build + push a **ghcr.io** con tags `latest` y `sha-XXXXXXX` |
+| `test` | Todo push / PR | Compila, ejecuta tests, JaCoCo ≥ 80 %, análisis SonarQube (si `SONAR_HOST_URL` está configurado) |
+| `k8s-validate` | Todo push / PR | Valida los manifests con **kubeconform** |
+| `docker` | Push a `main` (tras `test`) | Build + push a **ghcr.io** con tags `latest` y `sha-XXXXXXX` |
 
 La imagen publicada queda disponible en:
 
 ```
-ghcr.io/OWNER/reactive-customer-service:latest
-ghcr.io/OWNER/reactive-customer-service:sha-abc1234
+ghcr.io/apchavez/reactive-customer-service:latest
+ghcr.io/apchavez/reactive-customer-service:sha-abc1234
 ```
 
-No se requiere ningún secreto adicional — el job `docker` usa el `GITHUB_TOKEN` integrado de GitHub Actions.
+### SonarQube (opcional)
+
+Para activar el análisis de SonarQube en CI, configurar en el repositorio de GitHub:
+- **Secret:** `SONAR_TOKEN` — token generado en tu instancia de SonarQube
+- **Variable:** `SONAR_HOST_URL` — URL de la instancia (e.g. `https://sonarcloud.io`)
+
+Localmente:
+```bash
+./gradlew sonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=TU_TOKEN
+```
 
 ---
 
@@ -244,10 +172,23 @@ Los manifests en `k8s/` están preparados para producción:
 | `service.yaml` | ClusterIP en puerto 80 |
 | `ingress.yaml` | NGINX Ingress en `customer-service.local` |
 
-Los probes de k8s apuntan a los endpoints de Spring Boot Actuator:
+Aplicar los manifests en orden:
 
-* **Liveness:** `GET /actuator/health/liveness`
-* **Readiness:** `GET /actuator/health/readiness`
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+Los probes de Kubernetes apuntan a los endpoints de Actuator:
+- **Liveness:** `GET /actuator/health/liveness`
+- **Readiness:** `GET /actuator/health/readiness`
+
+> Actualizar `k8s/secret.yaml` con las credenciales reales antes de desplegar en producción.  
+> El Ingress asume un NGINX Ingress Controller y el host `customer-service.local`.
 
 ---
 
@@ -257,40 +198,13 @@ Los archivos están en la carpeta `postman/`.
 
 | Archivo | Propósito |
 |---|---|
-| `postman/reactive-customer-service.postman_collection.json` | Colección principal (importar siempre) |
-| `postman/reactive-customer-service.local.postman_environment.json` | Environment local — `baseUrl = http://localhost:8080` |
-| `postman/reactive-customer-service.k8s.postman_environment.json` | Environment Kubernetes — `baseUrl = http://customer-service.local` |
-
-**Cómo usar:**
-1. Importar la colección y los dos environments en Postman.
-2. Seleccionar el environment en el dropdown superior derecho:
-   - **Local** para probar con `./gradlew bootRun` (H2 en memoria).
-   - **Kubernetes** para probar contra el cluster k8s (requiere el Ingress activo y `customer-service.local` resuelto en el archivo `hosts`).
-
-La colección incluye dos carpetas:
-
-**Customers** — 7 requests con test scripts automáticos (ejecutar en orden):
-
-| # | Request | Descripción |
-|---|---|---|
-| 1 | POST crear (sin `id`) | Crea cliente; guarda el ID generado en la variable `customerId` |
-| 2 | POST crear con `id: 100` | Crea cliente con ID explícito 100 |
-| 3 | POST duplicado → 409 | Envía `id: 100` de nuevo; depende del paso 2 |
-| 4 | POST inválido → 400 | Campos vacíos y estado inválido; verifica el array `errores[].campo` |
-| 5 | GET activos → 200 | Verifica que todos los clientes retornados tengan `estado: "ACTIVE"` |
-| 6 | GET por ID → 200 | Usa `{{customerId}}` del paso 1; verifica los 5 campos de respuesta |
-| 7 | GET ID inexistente → 404 | Busca ID 99999; verifica campo `mensaje` en la respuesta |
-
-**Actuator** — 3 requests de health (sin dependencias):
-
-| Request | Verifica |
-|---|---|
-| GET `/actuator/health` | `status: "UP"` |
-| GET `/actuator/health/liveness` | `status: "UP"` (k8s liveness probe) |
-| GET `/actuator/health/readiness` | `status: "UP"` (k8s readiness probe) |
+| `reactive-customer-service.postman_collection.json` | Colección principal con test scripts automáticos |
+| `reactive-customer-service.local.postman_environment.json` | Environment local — `baseUrl = http://localhost:8080` |
+| `reactive-customer-service.k8s.postman_environment.json` | Environment Kubernetes — `baseUrl = http://customer-service.local` |
 
 ---
 
 ## Autor
 
-Proyecto orientado a demostrar habilidades en desarrollo backend reactivo con Java y Spring Boot.
+Proyecto orientado a demostrar habilidades en desarrollo backend reactivo con Java 21 y Spring Boot:
+arquitectura hexagonal, programación reactiva con WebFlux/R2DBC, testing exhaustivo (unitario, integración, property-based, architectural), CI/CD y despliegue en Kubernetes.

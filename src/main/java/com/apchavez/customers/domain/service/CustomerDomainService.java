@@ -32,4 +32,18 @@ public class CustomerDomainService {
     public Flux<Customer> listActiveCustomers() {
         return repositoryPort.findAllActive();
     }
+
+    public Mono<Customer> updateCustomer(Integer id, Customer updatedData) {
+        return repositoryPort.findById(id)
+                .switchIfEmpty(Mono.error(new ClienteNoEncontradoException(id)))
+                .flatMap(existing -> repositoryPort.update(
+                        new Customer(id, updatedData.nombre(), updatedData.apellido(),
+                                updatedData.estado(), updatedData.edad())));
+    }
+
+    public Mono<Void> deleteCustomer(Integer id) {
+        return repositoryPort.findById(id)
+                .switchIfEmpty(Mono.error(new ClienteNoEncontradoException(id)))
+                .flatMap(existing -> repositoryPort.delete(id));
+    }
 }
