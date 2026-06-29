@@ -4,12 +4,12 @@ import com.apchavez.customers.domain.event.CustomerEvent;
 import com.apchavez.customers.domain.port.CustomerEventPublisherPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 @Component
-@ConditionalOnMissingBean(CustomerEventPublisherPort.class)
+@ConditionalOnProperty(name = "spring.kafka.producer.bootstrap-servers", havingValue = "__noop__", matchIfMissing = true)
 public class NoOpCustomerEventPublisher implements CustomerEventPublisherPort {
 
     private static final Logger log = LoggerFactory.getLogger(NoOpCustomerEventPublisher.class);
