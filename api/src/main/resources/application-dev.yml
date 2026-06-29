@@ -10,10 +10,6 @@ spring:
     redis:
       host: localhost
       port: 6379
-  kafka:
-    producer:
-      bootstrap-servers: localhost:9092
-
 management:
   health:
     redis:
