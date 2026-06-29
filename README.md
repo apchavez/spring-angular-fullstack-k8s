@@ -1,4 +1,4 @@
-[![CI](https://github.com/apchavez/reactive-customer-service/actions/workflows/ci.yml/badge.svg)](https://github.com/apchavez/reactive-customer-service/actions/workflows/ci.yml)
+[![CI](https://github.com/apchavez/spring-webflux-hexagonal-arch/actions/workflows/ci.yml/badge.svg)](https://github.com/apchavez/spring-webflux-hexagonal-arch/actions/workflows/ci.yml)
 
 # Reactive Customer Service API
 
@@ -146,8 +146,8 @@ The GitHub Actions pipeline (`.github/workflows/ci.yml`) runs three jobs on ever
 Published image:
 
 ```
-ghcr.io/apchavez/reactive-customer-service:latest
-ghcr.io/apchavez/reactive-customer-service:sha-abc1234
+ghcr.io/apchavez/spring-webflux-hexagonal-arch:latest
+ghcr.io/apchavez/spring-webflux-hexagonal-arch:sha-abc1234
 ```
 
 ### SonarQube (optional)
@@ -221,5 +221,5 @@ Kubernetes probes point to Actuator endpoints:
 
 | Project | Description |
 |---|---|
-| [product-management](https://github.com/apchavez/product-management) | Fullstack Java 21 application with Quarkus backend, React frontend, MongoDB, Redis, and Kubernetes |
-| [clinic-scheduling-azure](https://github.com/apchavez/clinic-scheduling-azure) | Java 21 serverless platform on Azure Functions with Clean Architecture |
+| [quarkus-react-fullstack-k8s](https://github.com/apchavez/quarkus-react-fullstack-k8s) | Fullstack Java 21 application with Quarkus backend, React frontend, MongoDB, Redis, and Kubernetes |
+| [clean-arch-azure-functions-java](https://github.com/apchavez/clean-arch-azure-functions-java) | Java 21 serverless platform on Azure Functions with Clean Architecture |
