@@ -206,6 +206,8 @@ Manifests in `api/k8s/`:
 | `redis.yaml` | Redis deployment for reactive rate limiting |
 | `prometheus-rule.yaml` | PrometheusRule CRD with alerting rules (requires Prometheus Operator) |
 | `grafana.yaml` | Grafana deployment with pre-provisioned Prometheus datasource and dashboard |
+| `hpa.yaml` | HorizontalPodAutoscaler — 2–10 replicas, scales on CPU (70%) and memory (80%) |
+| `network-policy.yaml` | NetworkPolicy — restricts ingress (nginx + grafana only) and egress (postgres, redis, kafka, OTLP, DNS) |
 
 ---
 
