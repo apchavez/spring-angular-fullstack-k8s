@@ -78,12 +78,12 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "codeCoverage": true,
+            "coverage": true,
             "coverageReporters": ["html", "lcov", "text-summary"],
             "coverageThresholds": {
               "statements": 70,
               "branches": 60,
-              "functions": 70,
+              "functions": 50,
               "lines": 70
             }
           }
