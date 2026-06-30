@@ -75,7 +75,7 @@ jobs:
           SONAR_HOST_URL: https://sonarcloud.io
 
       - name: SonarCloud analysis (pull_request)
-        if: github.event_name == 'pull_request' && vars.SONAR_ORGANIZATION != ''
+        if: github.event_name == 'pull_request' && vars.SONAR_ORGANIZATION != '' && github.actor != 'dependabot[bot]'
         run: >
           ./gradlew sonar --no-daemon
           -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
