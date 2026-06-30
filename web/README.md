@@ -1,59 +1,67 @@
-# Web
+# Customer Service — Angular Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.17.
+Angular 21 SPA for the Customer Service platform. Provides a Material Design UI to create, view, update, and delete customers via the Spring Boot WebFlux API.
 
-## Development server
+## Tech Stack
 
-To start a local development server, run:
+| Category | Technology |
+|---|---|
+| Framework | Angular 21 (standalone components) |
+| UI Library | Angular Material (M3 theme) |
+| HTTP | Angular HttpClient + RxJS |
+| Forms | Angular Reactive Forms |
+| Tests | Vitest + Angular TestBed |
+| Build | Angular CLI, Docker multi-stage (nginx) |
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Getting Started
 
 ```bash
-ng generate --help
+npm install
+npm start
 ```
 
-## Building
+Opens at `http://localhost:4200`. Connects to the API at `http://localhost:8080` by default.
 
-To build the project run:
+To point to a different backend, edit `src/environments/environment.ts`:
+
+```ts
+export const environment = {
+  production: false,
+  apiUrl: 'http://your-api-host:8080'
+};
+```
+
+For production builds the equivalent file is `src/environments/environment.prod.ts`.
+
+## Running Tests
 
 ```bash
-ng build
+npm test
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+| Suite | File | What it covers |
+|---|---|---|
+| App bootstrap | `app.spec.ts` | Root component creation and title |
+| HTTP service | `customer.service.spec.ts` | HttpClient calls, request/response mapping |
+| Customer list | `customer-list.component.spec.ts` | Table rendering, loading state |
+| Customer form | `customer-form.component.spec.ts` | Form validation, create/edit modes |
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Production Build
 
 ```bash
-ng test
+npm run build
 ```
 
-## Running end-to-end tests
+Output goes to `dist/`. The `Dockerfile` uses a multi-stage build (Node → nginx) and serves the compiled assets on port 80.
 
-For end-to-end (e2e) testing, run:
+## Project Structure
 
-```bash
-ng e2e
 ```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+src/app/
+├── core/
+│   ├── models/        customer.model.ts
+│   └── services/      customer.service.ts
+└── customers/
+    ├── customer-list/ list view with Material table
+    └── customer-form/ create / edit dialog
+```

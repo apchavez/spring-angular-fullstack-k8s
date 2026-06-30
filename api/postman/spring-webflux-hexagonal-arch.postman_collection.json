@@ -369,6 +369,40 @@
             "description": "Kubernetes readiness probe. Si devuelve DOWN, k8s deja de enrutar tráfico al pod."
           },
           "response": []
+        },
+        {
+          "name": "GET Prometheus Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Content-Type es text/plain', () => {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/plain');",
+                  "});",
+                  "pm.test('Response contiene métricas JVM', () => {",
+                  "    pm.expect(pm.response.text()).to.include('jvm_memory_used_bytes');",
+                  "});",
+                  "pm.test('Response contiene métricas HTTP', () => {",
+                  "    pm.expect(pm.response.text()).to.include('http_server_requests_seconds');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/prometheus",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "prometheus"]
+            },
+            "description": "Expone métricas en formato Prometheus (text/plain). Incluye métricas JVM, HTTP request rate/latency y métricas de Spring WebFlux. Scrapeado automáticamente por Prometheus en K8s vía anotaciones en el pod."
+          },
+          "response": []
         }
       ]
     }

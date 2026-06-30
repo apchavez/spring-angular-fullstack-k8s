@@ -33,7 +33,7 @@ Fullstack monorepo with a reactive **Spring Boot WebFlux** backend following **H
 | Cache | Redis (reactive, rate limiting) |
 | Messaging | Apache Kafka (KRaft, topic `customer-events`) |
 | Security | Spring Security (headers, CORS, rate limiting) |
-| Observability | Spring Boot Actuator, SLF4J + Logback, X-Request-Id |
+| Observability | Spring Boot Actuator, Micrometer + Prometheus, OpenTelemetry (OTLP), SLF4J + Logback, X-Request-Id |
 | API Docs | Springdoc OpenAPI 2 (Swagger UI) |
 | Build | Gradle 8, JaCoCo (≥ 80% on domain and application) |
 | Code quality | ArchUnit, SonarCloud |
@@ -184,7 +184,7 @@ Manifests in `api/k8s/`:
 | File | Description |
 |---|---|
 | `namespace.yaml` | `customer-service` namespace |
-| `configmap.yaml` | Non-sensitive configuration (profile, DB host, Kafka bootstrap) |
+| `configmap.yaml` | Non-sensitive configuration (profile, DB host, Kafka bootstrap, `OTEL_EXPORTER_OTLP_ENDPOINT`) |
 | `secret.yaml` | Database credentials (base64) |
 | `deployment.yaml` | 2 replicas, ghcr.io image, probes, resource limits, securityContext |
 | `service.yaml` | ClusterIP on port 80 |
@@ -227,6 +227,7 @@ kubectl port-forward svc/grafana 3000:3000 -n customer-service
 - Angular 21 standalone components with Angular Material (M3), HttpClient, and Reactive Forms
 - Exhaustive test coverage: unit, integration, property-based, architectural (backend) + Vitest (frontend)
 - Production Kubernetes manifests with health probes, resource limits, and security context
+- Full observability stack: Prometheus metrics (`/actuator/prometheus`), OpenTelemetry distributed tracing, PrometheusRule alerting, and Grafana dashboard provisioned via K8s ConfigMaps
 - Multi-stage Docker builds for both services + automated publish to GHCR on every merge to main
 
 ---
