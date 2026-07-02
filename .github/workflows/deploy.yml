@@ -51,4 +51,5 @@ jobs:
             --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
             --set secrets.kafkaUser=${{ secrets.KAFKA_USER }} \
             --set secrets.kafkaPassword=${{ secrets.KAFKA_PASSWORD }} \
+            --set secrets.redisPassword=${{ secrets.REDIS_PASSWORD }} \
             --wait --timeout=120s

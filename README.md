@@ -233,10 +233,10 @@ Flyway uses a JDBC `DataSource` (HikariCP) running alongside the reactive R2DBC 
 | `ci.yml` / `test-api` | Every push / PR | Compile, test, JaCoCo ≥ 80%, SonarCloud (on main) |
 | `ci.yml` / `test-web` | Every push / PR | Angular tests + production build |
 | `ci.yml` / `e2e-web` | Every push / PR | Playwright E2E tests (API mocked, Chromium) |
-| `ci.yml` / `k8s-validate` | Every push / PR | Validate manifests with kubeconform |
-| `ci.yml` / `docker-api` | Push to `main` | Build + push `ghcr.io/apchavez/spring-angular-fullstack-k8s-api:sha-<SHA>` → pins tag in `api/k8s/deployment.yaml` |
+| `ci.yml` / `k8s-validate` | Every push / PR | `helm lint` + `helm template` piped into kubeconform — validates the actual chart that gets deployed |
+| `ci.yml` / `docker-api` | Push to `main` | Build + push `ghcr.io/apchavez/spring-angular-fullstack-k8s-api:sha-<SHA>` → pins tag in `api/k8s/deployment.yaml` (CI-only tag-pin file, see [Kubernetes](#kubernetes)) |
 | `ci.yml` / `docker-web` | Push to `main` | Build + push `ghcr.io/apchavez/spring-angular-fullstack-k8s-web:sha-<SHA>` |
-| `deploy.yml` | Automatic after `CI` completes on `main` · Manual via `workflow_dispatch` | `kubectl apply -f api/k8s/` → verifies rollout of `customer-service` |
+| `deploy.yml` | Automatic after `CI` completes on `main` · Manual via `workflow_dispatch` | Reads the pinned tag from `api/k8s/deployment.yaml`, then `helm upgrade --install customer-service ./chart` → verifies rollout |
 | `destroy.yml` | Manual (`workflow_dispatch`) | Deletes the `customer-service` namespace and all resources |
 
 ### Deploy flow
@@ -244,10 +244,10 @@ Flyway uses a JDBC `DataSource` (HikariCP) running alongside the reactive R2DBC 
 ```
 push to main
   → ci.yml  (test → k8s-validate → docker-api: push image + pin SHA tag → docker-web: push image)
-  → deploy.yml  (checkout main → kubectl apply -f api/k8s/ → rollout status)
+  → deploy.yml  (checkout main → read pinned tag → helm upgrade ./chart → rollout status)
 ```
 
-**Required secret:** `KUBECONFIG` — kubeconfig file content, configured in the `production` GitHub environment.
+**Required secrets** (configured in the `production` GitHub environment): `KUBECONFIG` (kubeconfig file content), `DB_USER`, `DB_PASSWORD`, `KAFKA_USER`, `KAFKA_PASSWORD`, `REDIS_PASSWORD`.
 
 To trigger a manual redeploy without a code change:
 
@@ -259,28 +259,33 @@ gh workflow run deploy.yml
 
 ## Kubernetes
 
-Manifests in `api/k8s/`:
+The manifests actually deployed live in `chart/` (Helm) — this is what `deploy.yml` applies via `helm upgrade --install`:
 
 | File | Description |
 |---|---|
 | `namespace.yaml` | `customer-service` namespace |
 | `configmap.yaml` | Non-sensitive configuration (profile, DB host, Kafka bootstrap, `OTEL_EXPORTER_OTLP_ENDPOINT`) |
-| `secret.yaml` | Database credentials (base64) |
+| `secret.yaml` | Database, Kafka, and Redis credentials |
 | `deployment.yaml` | 2 replicas, ghcr.io image, probes, resource limits, securityContext |
 | `service.yaml` | ClusterIP on port 80 |
 | `ingress.yaml` | NGINX Ingress at `customer-service.local` |
-| `kafka.yaml` | Single-node Kafka (Bitnami KRaft, no Zookeeper) |
+| `postgres.yaml` | PostgreSQL Deployment + 1Gi PVC |
+| `kafka.yaml` | Single-node Kafka (Bitnami KRaft, no Zookeeper) + 2Gi PVC — topic data survives pod restarts |
 | `redis.yaml` | Redis deployment for reactive rate limiting |
 | `prometheus-rule.yaml` | PrometheusRule CRD with alerting rules (requires Prometheus Operator) |
 | `grafana.yaml` | Grafana deployment with pre-provisioned Prometheus datasource and dashboard |
 | `hpa.yaml` | HorizontalPodAutoscaler — 2–10 replicas, scales on CPU (70%) and memory (80%) |
 | `network-policy.yaml` | NetworkPolicy — restricts ingress (nginx + grafana only) and egress (postgres, redis, kafka, OTLP, DNS) |
 
+`api/k8s/deployment.yaml` is **not** part of this — it's a CI-only artifact where `docker-api` persists the last-built image tag, which `deploy.yml` reads before running `helm upgrade`.
+
 ---
 
 ## Observability
 
 The API exposes metrics at `/actuator/prometheus` (Micrometer + Prometheus registry) and distributed traces via OpenTelemetry (OTLP exporter, configurable via `OTEL_EXPORTER_OTLP_ENDPOINT`). All requests are logged with a `X-Request-Id` correlation header.
+
+> **Design note:** `/actuator/prometheus` and `/swagger-ui.html`/`/v3/api-docs` are intentionally `permitAll()` (`SecurityConfig.java`) and reachable through the public Ingress — the Postman collection's "Observability" folder exercises `/actuator/prometheus` directly against the k8s environment as part of the demo. Neither leaks application data: the actuator surface is metrics-only (no `env`/`heapdump`/etc. exposed — see `application.yml`), and Swagger only exposes the API *shape*, since every `/api/v1/**` call still requires a valid JWT (and `ADMIN` role for writes) regardless of how it's invoked. This is a deliberate portfolio tradeoff — public docs/metrics to showcase the API, not an oversight.
 
 ### Structured JSON logging
 
@@ -304,7 +309,7 @@ In the `prod` profile, logs are emitted as **Elastic Common Schema (ECS)** JSON 
 
 `trace.id` and `span.id` are injected automatically by Micrometer Tracing / OpenTelemetry. `requestId` is emitted by `RequestLoggingFilter` as a structured key-value pair via the SLF4J 2.x fluent API. In the `dev` profile, the default human-readable console format is used.
 
-`api/k8s/prometheus-rule.yaml` contains a `PrometheusRule` CRD (Prometheus Operator) with three alert rules:
+`chart/templates/prometheus-rule.yaml` contains a `PrometheusRule` CRD (Prometheus Operator) with three alert rules:
 
 | Alert | Severity | Condition |
 |---|---|---|
@@ -314,7 +319,7 @@ In the `prod` profile, logs are emitted as **Elastic Common Schema (ECS)** JSON 
 
 Requires [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator) installed in the cluster.
 
-`api/k8s/grafana.yaml` deploys Grafana with a pre-provisioned Prometheus datasource and a dashboard covering request rate, error rate, P50/P99 latency, and JVM memory panels.
+`chart/templates/grafana.yaml` deploys Grafana with a pre-provisioned Prometheus datasource and a dashboard covering request rate, error rate, P50/P99 latency, and JVM memory panels.
 
 ```bash
 kubectl port-forward svc/grafana 3000:3000 -n customer-service

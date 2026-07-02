@@ -33,6 +33,7 @@ secrets:
   dbPassword: ""
   kafkaUser: customer-service
   kafkaPassword: ""
+  redisPassword: ""
 
 ingress:
   host: customer-service.local

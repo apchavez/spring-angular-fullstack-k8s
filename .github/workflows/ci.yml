@@ -161,6 +161,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Configurar Helm
+        uses: azure/setup-helm@v4
+
       - name: Instalar kubeconform
         run: |
           curl -sLo /tmp/kubeconform.tar.gz \
@@ -168,8 +171,11 @@ jobs:
           tar -xf /tmp/kubeconform.tar.gz -C /tmp
           sudo mv /tmp/kubeconform /usr/local/bin/
 
-      - name: Validar manifests k8s
-        run: kubeconform -strict -ignore-missing-schemas -summary api/k8s/
+      - name: Validar chart de Helm (lo que realmente se despliega)
+        run: |
+          helm lint ./chart
+          helm template customer-service ./chart --namespace customer-service \
+            | kubeconform -strict -ignore-missing-schemas -summary -
 
   docker-api:
     name: Docker — API
