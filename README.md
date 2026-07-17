@@ -260,7 +260,7 @@ Flyway usa un `DataSource` JDBC (HikariCP) que corre junto a la conexión reacti
 | `ci.yml` / `terraform-validate` | Cada push / PR | `terraform fmt -check` + `terraform validate` sobre `terraform/` (no requiere credenciales de nube) |
 | `ci.yml` / `docker-api` | Push a `main` | Construye y publica `ghcr.io/apchavez/spring-webflux-angular-api:latest` y `:sha-<SHA>` |
 | `ci.yml` / `docker-web` | Push a `main` | Construye y publica `ghcr.io/apchavez/spring-webflux-angular-web:latest` y `:sha-<SHA>` |
-| `deploy.yml` | Manual (`workflow_dispatch`) | `helm upgrade --install product-service ./chart --set api.image.tag=latest` → verifica el rollout |
+| `deploy.yml` | Manual (`workflow_dispatch`) | `helm upgrade --install product-service ./chart --set api.image.tag=latest --set web.image.tag=latest` → verifica el rollout |
 | `destroy.yml` | Manual (`workflow_dispatch`) | Elimina el namespace `product-service` y todos sus recursos |
 
 ### Flujo de despliegue
@@ -286,9 +286,11 @@ Los manifiestos que realmente se despliegan viven en `chart/` (Helm) — esto es
 | `namespace.yaml` | Namespace `product-service` |
 | `configmap.yaml` | Configuración no sensible (perfil, host de BD, bootstrap de Kafka, `OTEL_EXPORTER_OTLP_ENDPOINT`) |
 | `secret.yaml` | Credenciales de base de datos, Kafka y Redis |
-| `deployment.yaml` | 2 réplicas, imagen de ghcr.io, probes, límites de recursos, securityContext |
-| `service.yaml` | ClusterIP en el puerto 80 |
-| `ingress.yaml` | Ingress de NGINX en `product-service.local` |
+| `deployment.yaml` | Backend — 2 réplicas, imagen de ghcr.io, probes, límites de recursos, securityContext |
+| `service.yaml` | ClusterIP del backend en el puerto 80 |
+| `deployment-web.yaml` | Frontend Angular — 2 réplicas, imagen nginx de ghcr.io, probes |
+| `service-web.yaml` | ClusterIP del frontend en el puerto 80 |
+| `ingress.yaml` | Ingress de NGINX en `product-service.local` — `/api/v1`, `/actuator`, `/swagger-ui`, `/v3/api-docs` → backend; `/` → frontend |
 | `postgres.yaml` | Deployment de PostgreSQL + PVC de 1Gi |
 | `kafka.yaml` | Kafka de un solo nodo (Bitnami KRaft, sin Zookeeper) + PVC de 2Gi — los datos del tópico sobreviven reinicios de pod |
 | `redis.yaml` | Deployment de Redis — contadores de rate limiting + cache-aside de productos (fail-open) |

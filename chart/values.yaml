@@ -14,6 +14,20 @@ api:
       cpu: 500m
       memory: 512Mi
 
+web:
+  image:
+    repository: ghcr.io/apchavez/spring-webflux-angular-web
+    tag: latest
+    pullPolicy: Always
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 config:
   springProfile: prod
   db:
